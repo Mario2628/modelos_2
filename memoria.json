@@ -1,0 +1,36 @@
+{
+  "history": [
+    {
+      "type": "human",
+      "content": "hola me llamo mario mendez"
+    },
+    {
+      "type": "ai",
+      "content": "¡Hola, Mario! Es un placer conocerte. ¿En qué puedo ayudarte hoy?"
+    },
+    {
+      "type": "human",
+      "content": "tengo 23 años"
+    },
+    {
+      "type": "ai",
+      "content": "Gracias por compartirlo, Mario. Tienes 23 años.\n\n¿Hay algo específico en lo que pueda ayudarte, o solo quieres charlar?"
+    },
+    {
+      "type": "human",
+      "content": "mido 1.70"
+    },
+    {
+      "type": "ai",
+      "content": "Entendido, Mario. Tienes 23 años y mides 1.70 m.\n\nSigo aquí para lo que necesites."
+    },
+    {
+      "type": "human",
+      "content": "me gusta la pizza"
+    },
+    {
+      "type": "ai",
+      "content": "¡A mí también me encanta la pizza, Mario! Es uno de mis platos favoritos.\n\nAsí que, para resumir lo que sé de ti: eres Mario Méndez, tienes 23 años, mides 1.70 m y te gusta la pizza.\n\n¿Hay algo más que te gustaría compartir o en lo que pueda ayudarte?"
+    }
+  ]
+}
