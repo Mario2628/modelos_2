@@ -22,7 +22,17 @@ llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash", temperature=0.7)
 prompt_resumen = PromptTemplate.from_template("Resume el siguiente texto: {input}")
 prompt_traduccion = PromptTemplate.from_template("Tradúcelo al inglés: {input}")
 
+# Cadena: resumen → traducción → parser a string
 chain = prompt_resumen | llm | prompt_traduccion | llm | StrOutputParser()
 
-resultado = chain.invoke("La inteligencia artificial está transformando la educación...")
-print(resultado)
+
+def run_chain(texto: str) -> str:
+    """
+    Ejecuta el flujo de varios pasos y devuelve texto plano.
+    """
+    return chain.invoke(texto)
+
+
+if __name__ == "__main__":
+    demo = "La inteligencia artificial está transformando la educación..."
+    print(run_chain(demo))

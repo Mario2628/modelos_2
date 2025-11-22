@@ -5,22 +5,29 @@ from dotenv import load_dotenv
 import os
 import logging
 
-def ejecutar_con_memoria(texto):
-    """Ejecuta el modelo conservando la memoria entre llamadas."""
+
+def ejecutar_con_memoria(texto: str) -> str:
+    """
+    Ejecuta el modelo conservando la memoria entre llamadas.
+
+    Cada vez que se llama, se lee el historial almacenado en `memory`
+    y se añade el nuevo turno de conversación.
+    """
     # Cargar historial previo desde la memoria
     history = memory.load_memory_variables({}).get("history", [])
-    
+
     # Crear el chain moderno (RunnableSequence)
     chain = prompt | llm
-    
+
     # Invocar el modelo con historial e input actual
     response = chain.invoke({"history": history, "input": texto})
-    
+
     # Guardar el intercambio actual en la memoria
     memory.save_context({"input": texto}, {"output": response.content})
-    
+
     # Retornar texto limpio
     return response.content.strip()
+
 
 # Silenciar logs
 os.environ["GRPC_VERBOSITY"] = "NONE"
@@ -42,14 +49,22 @@ prompt = ChatPromptTemplate.from_messages([
     ("human", "{input}")
 ])
 
-# Crear la memoria
+# Crear la memoria (en RAM, no persistente)
 memory = ConversationBufferMemory(return_messages=True)
 
-# Ejemplo de uso
-print(ejecutar_con_memoria("Hola, soy Mario."))
-print(ejecutar_con_memoria("¿Recuerdas cómo me llamo?"))
-print(ejecutar_con_memoria("¿Qué me dijiste primero?"))
-print(ejecutar_con_memoria("¿Puedes resumir nuestra conversación?"))
-print(ejecutar_con_memoria("¿Cuál es mi nombre completo?"))
-print(ejecutar_con_memoria("¿Qué temas hemos tocado hasta ahora?"))
 
+def resetear_memoria():
+    """
+    Reinicia el historial de la conversación (solo en memoria, no se usa archivo).
+    """
+    global memory
+    memory = ConversationBufferMemory(return_messages=True)
+
+
+if __name__ == "__main__":
+    print(ejecutar_con_memoria("Hola, soy Alejandro."))
+    print(ejecutar_con_memoria("¿Recuerdas cómo me llamo?"))
+    print(ejecutar_con_memoria("¿Qué me dijiste primero?"))
+    print(ejecutar_con_memoria("¿Puedes resumir nuestra conversación?"))
+    print(ejecutar_con_memoria("¿Cuál es mi nombre completo?"))
+    print(ejecutar_con_memoria("¿Qué temas hemos tocado hasta ahora?"))

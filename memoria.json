@@ -31,6 +31,38 @@
     {
       "type": "ai",
       "content": "¡A mí también me encanta la pizza, Mario! Es uno de mis platos favoritos.\n\nAsí que, para resumir lo que sé de ti: eres Mario Méndez, tienes 23 años, mides 1.70 m y te gusta la pizza.\n\n¿Hay algo más que te gustaría compartir o en lo que pueda ayudarte?"
+    },
+    {
+      "type": "human",
+      "content": "dime lo que sabes de mi"
+    },
+    {
+      "type": "ai",
+      "content": "¡Claro, Mario! Con gusto te digo lo que sé de ti hasta ahora:\n\n1.  **Nombre:** Mario Méndez\n2.  **Edad:** 23 años\n3.  **Altura:** 1.70 metros\n4.  **Gustos:** Te gusta la pizza.\n\nEsa es toda la información que me has proporcionado. ¿Hay algo más que quieras añadir o corregir?"
+    },
+    {
+      "type": "human",
+      "content": "me llamo alejandro?"
+    },
+    {
+      "type": "ai",
+      "content": "No, Mario. Según lo que me dijiste al principio, tu nombre es **Mario Méndez**.\n\n¿Hay algo que quieras corregir o añadir?"
+    },
+    {
+      "type": "human",
+      "content": "que sabes de mi ?"
+    },
+    {
+      "type": "ai",
+      "content": "¡Claro, Mario! Esto es lo que sé de ti:\n\n*   **Nombre:** Mario Méndez\n*   **Edad:** 23 años\n*   **Altura:** 1.70 metros\n*   **Gustos:** Te gusta la pizza\n\nEsa es la información que me has compartido hasta ahora."
+    },
+    {
+      "type": "human",
+      "content": "me gusta programar"
+    },
+    {
+      "type": "ai",
+      "content": "¡Excelente, Mario! Ahora sé que también te gusta programar.\n\nAsí que, para resumir lo que sé de ti:\n\n*   **Nombre:** Mario Méndez\n*   **Edad:** 23 años\n*   **Altura:** 1.70 metros\n*   **Gustos:** Te gusta la pizza y te gusta programar.\n\n¡Es genial conocer más sobre ti! ¿Hay algo más que quieras compartir o en lo que pueda ayudarte?"
     }
   ]
 }

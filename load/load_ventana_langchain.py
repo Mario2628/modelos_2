@@ -2,8 +2,10 @@
 # ------------------------------------------------------
 # Ventana para ejecutar tus ejercicios LangChain.
 # 1: input de "tema" y "template" (se pasan al script por variables de entorno).
-# 2,3,4,5,8: play-only (ejecutar y ver salida).
-# 6 y 7: deja tus widgets/implementación como ya la tengas.
+# 2,3: resumen + traducción a varios idiomas desde la interfaz.
+# 4,5: texto → texto simple.
+# 6 y 7: chat interactivo con memoria (RAM / JSON).
+# 8: RAG con PDF seleccionable.
 # ------------------------------------------------------
 
 import os
@@ -11,21 +13,30 @@ import sys
 import traceback
 import subprocess
 from pathlib import Path
+import importlib.util
 
 from PyQt5 import uic, QtCore
 from PyQt5.QtCore import QThread, pyqtSignal
 from PyQt5.QtWidgets import (
     QDialog, QListWidget, QTextEdit, QLabel, QWidget,
-    QVBoxLayout, QPushButton, QMessageBox, QLineEdit, QSplitter
+    QVBoxLayout, QPushButton, QMessageBox, QLineEdit, QSplitter,
+    QComboBox, QFileDialog
 )
 
-def err(parent, msg): QMessageBox.critical(parent, "Error", msg)
-def warn(parent, msg): QMessageBox.warning(parent, "Aviso", msg)
+
+def err(parent, msg):
+    QMessageBox.critical(parent, "Error", msg)
+
+
+def warn(parent, msg):
+    QMessageBox.warning(parent, "Aviso", msg)
+
 
 class QLabelBig(QLabel):
     def __init__(self, text=""):
         super().__init__(text)
         self.setStyleSheet("font-size: 16pt; font-weight: 600;")
+
 
 # ---------------- Runner (ejecuta scripts en subproceso) ----------------
 class ScriptRunner(QThread):
@@ -75,6 +86,38 @@ class ScriptRunner(QThread):
         except Exception as e:
             self.finished_err.emit(f"{e}\n\n{traceback.format_exc()}")
 
+
+# ---------------- Runner para funciones de Python (misma sesión) ----------------
+class FunctionRunner(QThread):
+    line = pyqtSignal(str)
+    finished_ok = pyqtSignal(int)
+    finished_err = pyqtSignal(str)
+
+    def __init__(self, fn, *args, **kwargs):
+        super().__init__()
+        self.fn = fn
+        self.args = args
+        self.kwargs = kwargs
+
+    def run(self):
+        try:
+            result = self.fn(*self.args, **self.kwargs)
+
+            # Soportar listas/tuplas como varias salidas
+            if isinstance(result, (list, tuple)):
+                text = "\n".join(str(x) for x in result)
+            else:
+                text = "" if result is None else str(result)
+
+            if not text.strip():
+                text = "[Sin salida]"
+
+            self.line.emit(text)
+            self.finished_ok.emit(0)
+        except Exception as e:
+            self.finished_err.emit(f"{e}\n\n{traceback.format_exc()}")
+
+
 # ================== Ventana principal ==================
 class Load_ventana_langchain(QDialog):
     def __init__(self):
@@ -98,7 +141,7 @@ class Load_ventana_langchain(QDialog):
         splitter: QSplitter = self.findChild(QSplitter, "splitter")
         if splitter:
             QtCore.QTimer.singleShot(
-                0, lambda: splitter.setSizes([int(self.width()*0.25), int(self.width()*0.75)])
+                0, lambda: splitter.setSizes([int(self.width() * 0.25), int(self.width() * 0.75)])
             )
 
         # Rutas
@@ -108,11 +151,11 @@ class Load_ventana_langchain(QDialog):
         # Descripciones (breves)
         self.items = [
             ("1_llmchain.py",               "Ejemplo de PromptTemplate con entrada personalizada."),
-            ("2_sequientialchain.py",       "Resumen → Traducción (SequentialChain)."),
-            ("3_simplesequientialchain.py", "Pipeline encadenado directo."),
+            ("2_sequientialchain.py",       "Resumen → Traducción (SequentialChain) con varios idiomas."),
+            ("3_simplesequientialchain.py", "Pipeline encadenado directo con varios idiomas."),
             ("4_parseo.py",                 "Resumen en una oración (parser)."),
             ("5_varios_pasos.py",           "Resumen→Traducción con parser."),
-            ("6_memoria.py",                "Conversación con memoria (5 turnos)."),
+            ("6_memoria.py",                "Conversación con memoria (5 turnos en RAM)."),
             ("7_persistencia.py",           "Memoria persistente (JSON)."),
             ("8_memoria.py",                "RAG con PDF (FAISS)."),
         ]
@@ -132,6 +175,30 @@ class Load_ventana_langchain(QDialog):
         self.inp_template = None
         self.btn_run_tema = None
 
+        # Campos genéricos de paneles de texto
+        self.txt_input = None
+        self.btn_run_chain = None
+
+        # Campos para paneles de chat (6 y 7)
+        self.inp_chat = None
+        self.btn_chat_send = None
+        self.btn_chat_reset = None
+
+        # Panel resumen/traducción (2 y 3)
+        self.btn_resumir = None
+        self.btn_traducir = None
+        self.cmb_idioma = None
+        self.txt_resumen = None
+        self.txt_traduccion = None
+
+        # Panel RAG (8)
+        self.txt_pdf_path = None
+        self.btn_select_pdf = None
+        self.pdf_path_8 = None
+
+        # Cache de módulos cargados dinámicamente
+        self.modules_cache = {}
+
     # ------------ util ------------
     def _clear_panel(self):
         while self.panelLayout.count():
@@ -140,7 +207,50 @@ class Load_ventana_langchain(QDialog):
             if w:
                 w.setParent(None)
 
+        # Reset referencias de widgets dinámicos
+        self.txt_output = None
+        self.txt_input = None
+        self.btn_run_chain = None
+        self.inp_chat = None
+        self.btn_chat_send = None
+        self.btn_chat_reset = None
+
+        self.btn_resumir = None
+        self.btn_traducir = None
+        self.cmb_idioma = None
+        self.txt_resumen = None
+        self.txt_traduccion = None
+
+        self.txt_pdf_path = None
+        self.btn_select_pdf = None
+        self.pdf_path_8 = None
+
+    def _load_module(self, script_name: str):
+        """Importa dinámicamente el archivo de ejercicio y lo cachea."""
+        if script_name in self.modules_cache:
+            return self.modules_cache[script_name]
+
+        path = self.scripts_dir / script_name
+        if not path.exists():
+            err(self, f"No se encontró el archivo:\n{path}")
+            return None
+
+        try:
+            mod_name = f"lc_{script_name.replace('.py', '').replace('-', '_').replace('.', '_')}"
+            spec = importlib.util.spec_from_file_location(mod_name, str(path))
+            if spec is None or spec.loader is None:
+                err(self, f"No se pudo cargar el módulo desde:\n{path}")
+                return None
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+            self.modules_cache[script_name] = module
+            return module
+        except Exception as e:
+            err(self, f"Error al importar {script_name}:\n{e}\n\n{traceback.format_exc()}")
+            return None
+
     # ---------- Panel del ejercicio 1: Tema + Template ----------
+    # *** NO TOCAR (dejado igual que en tu archivo) ***
     def _build_llmchain1_panel(self, script_name: str, desc: str):
         self._clear_panel()
         self.lblTitulo.setText(script_name)
@@ -205,7 +315,7 @@ class Load_ventana_langchain(QDialog):
         self.runner.finished_err.connect(lambda m: (err(self, m), self.txt_output.append("\n[ERROR]\n" + m)))
         self.runner.start()
 
-    # ---------- Panel genérico (2,3,4,5,8) ----------
+    # ---------- Panel genérico (4,5 y fallback) ----------
     def _build_play_panel(self, script_name: str, desc: str):
         self._clear_panel()
         self.lblTitulo.setText(script_name)
@@ -246,6 +356,504 @@ class Load_ventana_langchain(QDialog):
         self.runner.finished_err.connect(lambda m: (err(self, m), self.txt_output.append("\n[ERROR]\n" + m)))
         self.runner.start()
 
+    # ---------- Panel simple texto → texto (4,5) ----------
+    def _build_simple_chain_panel(self, script_name: str, desc: str,
+                                  input_label: str, output_label: str,
+                                  func_name: str):
+        self._clear_panel()
+        self.lblTitulo.setText(script_name)
+        self.txtDesc.setPlainText(desc)
+
+        self.txt_input = QTextEdit()
+        self.txt_input.setPlaceholderText("Escribe aquí el texto de entrada…")
+
+        self.btn_run_chain = QPushButton("▶ Ejecutar")
+        self.btn_run_chain.setCursor(QtCore.Qt.PointingHandCursor)
+
+        self.txt_output = QTextEdit()
+        self.txt_output.setReadOnly(True)
+        self.txt_output.setStyleSheet("font-size:14pt;")
+
+        w = QWidget()
+        v = QVBoxLayout(w)
+        v.addWidget(QLabelBig(input_label))
+        v.addWidget(self.txt_input)
+        v.addWidget(self.btn_run_chain)
+        v.addWidget(QLabelBig(output_label))
+        v.addWidget(self.txt_output)
+
+        self.panelLayout.addWidget(w)
+
+        self.btn_run_chain.clicked.connect(
+            lambda: self._run_simple_chain(script_name, func_name)
+        )
+
+    def _run_simple_chain(self, script_name: str, func_name: str):
+        if self.runner and self.runner.isRunning():
+            return warn(self, "Ya hay un proceso en ejecución.")
+
+        if not self.txt_input:
+            return
+
+        text = self.txt_input.toPlainText().strip()
+        if not text:
+            return warn(self, "Escribe algún texto de entrada.")
+
+        module = self._load_module(script_name)
+        if module is None:
+            return
+
+        fn = getattr(module, func_name, None)
+        if not callable(fn):
+            return err(self, f"El archivo {script_name} no define la función {func_name}().")
+
+        self.txt_output.clear()
+        self.txt_output.append(f"[Ejecutando] {script_name}\n")
+        if self.btn_run_chain:
+            self.btn_run_chain.setEnabled(False)
+
+        self.runner = FunctionRunner(fn, text)
+        self.runner.line.connect(self.txt_output.append)
+        self.runner.finished_ok.connect(lambda _: self._on_func_finished_ok())
+        self.runner.finished_err.connect(lambda m: self._on_func_finished_err(m))
+        self.runner.start()
+
+    def _on_func_finished_ok(self):
+        if self.txt_output:
+            self.txt_output.append("\n[OK] Ejecución terminada.")
+        if self.btn_run_chain:
+            self.btn_run_chain.setEnabled(True)
+        self.runner = None
+
+    def _on_func_finished_err(self, msg: str):
+        if self.btn_run_chain:
+            self.btn_run_chain.setEnabled(True)
+        err(self, msg)
+        if self.txt_output:
+            self.txt_output.append("\n[ERROR]\n" + msg)
+        self.runner = None
+
+    # ---------- Panel resumen + traducción (ejercicios 2 y 3) ----------
+    def _build_resumen_traduccion_panel(self, script_name: str, desc: str):
+        self._clear_panel()
+        self.lblTitulo.setText(script_name)
+        self.txtDesc.setPlainText(desc)
+
+        self.txt_input = QTextEdit()
+        self.txt_input.setPlaceholderText("Escribe aquí el texto que quieras resumir…")
+
+        self.btn_resumir = QPushButton("Resumir")
+        self.btn_resumir.setCursor(QtCore.Qt.PointingHandCursor)
+
+        self.txt_resumen = QTextEdit()
+        self.txt_resumen.setReadOnly(True)
+        self.txt_resumen.setStyleSheet("font-size:14pt;")
+
+        self.cmb_idioma = QComboBox()
+        idiomas = [
+            "inglés",
+            "español",
+            "francés",
+            "alemán",
+            "italiano",
+            "portugués",
+            "chino simplificado",
+            "japonés",
+            "coreano",
+            "árabe",
+            "ruso",
+            "hindi",
+            "turco",
+            "neerlandés",
+            "polaco",
+        ]
+        self.cmb_idioma.addItems(idiomas)
+        self.cmb_idioma.setCurrentIndex(0)  # inglés por defecto
+
+        self.btn_traducir = QPushButton("Traducir resumen")
+        self.btn_traducir.setCursor(QtCore.Qt.PointingHandCursor)
+
+        self.txt_traduccion = QTextEdit()
+        self.txt_traduccion.setReadOnly(True)
+        self.txt_traduccion.setStyleSheet("font-size:14pt;")
+
+        w = QWidget()
+        v = QVBoxLayout(w)
+        v.addWidget(QLabelBig("Texto original:"))
+        v.addWidget(self.txt_input)
+        v.addWidget(self.btn_resumir)
+        v.addWidget(QLabelBig("Resumen en español:"))
+        v.addWidget(self.txt_resumen)
+        v.addWidget(QLabelBig("Traducción del resumen:"))
+        v.addWidget(self.cmb_idioma)
+        v.addWidget(self.btn_traducir)
+        v.addWidget(self.txt_traduccion)
+
+        self.panelLayout.addWidget(w)
+
+        self.btn_resumir.clicked.connect(
+            lambda: self._run_resumen(script_name)
+        )
+        self.btn_traducir.clicked.connect(
+            lambda: self._run_traduccion(script_name)
+        )
+
+    def _run_resumen(self, script_name: str):
+        if self.runner and self.runner.isRunning():
+            return warn(self, "Ya hay un proceso en ejecución.")
+
+        if not self.txt_input:
+            return
+
+        texto = self.txt_input.toPlainText().strip()
+        if not texto:
+            return warn(self, "Escribe un texto para resumir.")
+
+        module = self._load_module(script_name)
+        if module is None:
+            return
+
+        fn = getattr(module, "resumir", None)
+        if not callable(fn):
+            return err(self, f"El archivo {script_name} no define la función resumir().")
+
+        if self.txt_resumen:
+            self.txt_resumen.clear()
+        if self.txt_traduccion:
+            self.txt_traduccion.clear()
+
+        if self.btn_resumir:
+            self.btn_resumir.setEnabled(False)
+
+        self.runner = FunctionRunner(fn, texto)
+        self.runner.line.connect(self._mostrar_resumen)
+        self.runner.finished_ok.connect(lambda _: self._on_resumen_ok())
+        self.runner.finished_err.connect(lambda m: self._on_resumen_err(m))
+        self.runner.start()
+
+    def _mostrar_resumen(self, texto: str):
+        if self.txt_resumen:
+            self.txt_resumen.setPlainText(texto)
+
+    def _on_resumen_ok(self):
+        if self.btn_resumir:
+            self.btn_resumir.setEnabled(True)
+        self.runner = None
+
+    def _on_resumen_err(self, msg: str):
+        if self.btn_resumir:
+            self.btn_resumir.setEnabled(True)
+        err(self, msg)
+        self.runner = None
+
+    def _run_traduccion(self, script_name: str):
+        if self.runner and self.runner.isRunning():
+            return warn(self, "Ya hay un proceso en ejecución.")
+
+        if not self.txt_resumen:
+            return
+
+        resumen = self.txt_resumen.toPlainText().strip()
+        if not resumen:
+            return warn(self, "Primero genera el resumen con el botón 'Resumir'.")
+
+        idioma = "inglés"
+        if self.cmb_idioma and self.cmb_idioma.currentText():
+            idioma = self.cmb_idioma.currentText()
+
+        module = self._load_module(script_name)
+        if module is None:
+            return
+
+        fn = getattr(module, "traducir", None)
+        if not callable(fn):
+            return err(self, f"El archivo {script_name} no define la función traducir().")
+
+        if self.txt_traduccion:
+            self.txt_traduccion.clear()
+
+        if self.btn_traducir:
+            self.btn_traducir.setEnabled(False)
+
+        self.runner = FunctionRunner(fn, resumen, idioma)
+        self.runner.line.connect(self._mostrar_traduccion)
+        self.runner.finished_ok.connect(lambda _: self._on_traduccion_ok())
+        self.runner.finished_err.connect(lambda m: self._on_traduccion_err(m))
+        self.runner.start()
+
+    def _mostrar_traduccion(self, texto: str):
+        if self.txt_traduccion:
+            self.txt_traduccion.setPlainText(texto)
+
+    def _on_traduccion_ok(self):
+        if self.btn_traducir:
+            self.btn_traducir.setEnabled(True)
+        self.runner = None
+
+    def _on_traduccion_err(self, msg: str):
+        if self.btn_traducir:
+            self.btn_traducir.setEnabled(True)
+        err(self, msg)
+        self.runner = None
+
+    # ---------- Panel de chat (ejercicios 6 y 7) ----------
+    def _build_chat_panel(self, script_name: str, desc: str,
+                          func_name: str, reset_fn_name: str = None):
+        self._clear_panel()
+        self.lblTitulo.setText(script_name)
+        self.txtDesc.setPlainText(desc)
+
+        self.txt_output = QTextEdit()
+        self.txt_output.setReadOnly(True)
+        self.txt_output.setStyleSheet("font-size:14pt;")
+
+        self.inp_chat = QLineEdit()
+        self.inp_chat.setPlaceholderText("Escribe tu mensaje para el asistente…")
+
+        self.btn_chat_send = QPushButton("Enviar mensaje")
+        self.btn_chat_send.setCursor(QtCore.Qt.PointingHandCursor)
+
+        layout = QVBoxLayout()
+        layout.addWidget(QLabelBig("Historial de conversación:"))
+        layout.addWidget(self.txt_output)
+        layout.addWidget(QLabelBig("Tu mensaje:"))
+        layout.addWidget(self.inp_chat)
+        layout.addWidget(self.btn_chat_send)
+
+        self.btn_chat_reset = None
+        if reset_fn_name:
+            self.btn_chat_reset = QPushButton("🧹 Borrar memoria")
+            self.btn_chat_reset.setCursor(QtCore.Qt.PointingHandCursor)
+            layout.addWidget(self.btn_chat_reset)
+
+        w = QWidget()
+        w.setLayout(layout)
+        self.panelLayout.addWidget(w)
+
+        self.btn_chat_send.clicked.connect(
+            lambda: self._run_chat_message(script_name, func_name)
+        )
+        if reset_fn_name and self.btn_chat_reset:
+            self.btn_chat_reset.clicked.connect(
+                lambda: self._reset_chat_memory(script_name, reset_fn_name)
+            )
+
+        # Mensaje inicial
+        self.txt_output.append("La memoria de la conversación se conserva entre mensajes.")
+        if script_name == "7_persistencia.py":
+            self.txt_output.append(
+                "En este ejercicio además se guarda el historial en un archivo JSON (memoria persistente)."
+            )
+
+    def _run_chat_message(self, script_name: str, func_name: str):
+        if self.runner and self.runner.isRunning():
+            return warn(self, "Ya hay un proceso en ejecución.")
+
+        if not self.inp_chat:
+            return
+
+        text = self.inp_chat.text().strip()
+        if not text:
+            return warn(self, "Escribe un mensaje.")
+
+        module = self._load_module(script_name)
+        if module is None:
+            return
+
+        fn = getattr(module, func_name, None)
+        if not callable(fn):
+            return err(self, f"El archivo {script_name} no define la función {func_name}().")
+
+        if self.txt_output:
+            self.txt_output.append(f"👤 Tú: {text}")
+
+        self.inp_chat.clear()
+        if self.btn_chat_send:
+            self.btn_chat_send.setEnabled(False)
+
+        self.runner = FunctionRunner(fn, text)
+        self.runner.line.connect(self._append_bot_message)
+        self.runner.finished_ok.connect(lambda _: self._on_chat_finished_ok())
+        self.runner.finished_err.connect(lambda m: self._on_chat_finished_err(m))
+        self.runner.start()
+
+    def _append_bot_message(self, text: str):
+        if self.txt_output:
+            self.txt_output.append(f"🤖 Asistente: {text}")
+
+    def _on_chat_finished_ok(self):
+        if self.btn_chat_send:
+            self.btn_chat_send.setEnabled(True)
+        self.runner = None
+
+    def _on_chat_finished_err(self, msg: str):
+        if self.btn_chat_send:
+            self.btn_chat_send.setEnabled(True)
+        err(self, msg)
+        if self.txt_output:
+            self.txt_output.append("\n[ERROR]\n" + msg)
+        self.runner = None
+
+    def _reset_chat_memory(self, script_name: str, reset_fn_name: str):
+        module = self._load_module(script_name)
+        if module is None:
+            return
+
+        fn = getattr(module, reset_fn_name, None)
+        if not callable(fn):
+            return err(self, f"El archivo {script_name} no define la función {reset_fn_name}().")
+
+        try:
+            fn()
+            if self.txt_output:
+                self.txt_output.clear()
+                self.txt_output.append("Memoria reiniciada.")
+        except Exception as e:
+            err(self, f"No se pudo reiniciar la memoria:\n{e}")
+
+    # ---------- Panel RAG (ejercicio 8) ----------
+    def _build_rag_panel(self, script_name: str, desc: str):
+        self._clear_panel()
+        self.lblTitulo.setText(script_name)
+        self.txtDesc.setPlainText(desc)
+
+        self.txt_pdf_path = QLineEdit()
+        self.txt_pdf_path.setReadOnly(True)
+        self.txt_pdf_path.setPlaceholderText(
+            "Ningún PDF seleccionado. Se usará el PDF por defecto del script si no eliges otro."
+        )
+
+        self.btn_select_pdf = QPushButton("Seleccionar PDF…")
+        self.btn_select_pdf.setCursor(QtCore.Qt.PointingHandCursor)
+
+        self.txt_input = QTextEdit()
+        self.txt_input.setPlaceholderText("Escribe aquí tu pregunta sobre el PDF…")
+
+        self.btn_run_chain = QPushButton("▶ Ejecutar")
+        self.btn_run_chain.setCursor(QtCore.Qt.PointingHandCursor)
+
+        self.txt_output = QTextEdit()
+        self.txt_output.setReadOnly(True)
+        self.txt_output.setStyleSheet("font-size:14pt;")
+
+        w = QWidget()
+        v = QVBoxLayout(w)
+        v.addWidget(QLabelBig("PDF de contexto:"))
+        v.addWidget(self.txt_pdf_path)
+        v.addWidget(self.btn_select_pdf)
+        v.addWidget(QLabelBig("Pregunta:"))
+        v.addWidget(self.txt_input)
+        v.addWidget(self.btn_run_chain)
+        v.addWidget(QLabelBig("Respuesta:"))
+        v.addWidget(self.txt_output)
+
+        self.panelLayout.addWidget(w)
+
+        self.btn_select_pdf.clicked.connect(
+            lambda: self._seleccionar_pdf(script_name)
+        )
+        self.btn_run_chain.clicked.connect(
+            lambda: self._run_rag_query(script_name)
+        )
+
+    def _seleccionar_pdf(self, script_name: str):
+        file_path, _ = QFileDialog.getOpenFileName(
+            self,
+            "Seleccionar PDF",
+            "",
+            "Archivos PDF (*.pdf)"
+        )
+        if not file_path:
+            return
+
+        self.pdf_path_8 = file_path
+        if self.txt_pdf_path:
+            self.txt_pdf_path.setText(file_path)
+
+        module = self._load_module(script_name)
+        if module is None:
+            return
+
+        inicializar = getattr(module, "inicializar_indice", None)
+        if not callable(inicializar):
+            return err(self, f"El archivo {script_name} no define la función inicializar_indice().")
+
+        if self.btn_select_pdf:
+            self.btn_select_pdf.setEnabled(False)
+        if self.txt_output:
+            self.txt_output.clear()
+            self.txt_output.append("Cargando y procesando el PDF seleccionado...\n")
+
+        self.runner = FunctionRunner(inicializar, file_path)
+        self.runner.line.connect(self._on_pdf_index_message)
+        self.runner.finished_ok.connect(lambda _: self._on_pdf_index_ok())
+        self.runner.finished_err.connect(lambda m: self._on_pdf_index_err(m))
+        self.runner.start()
+
+    def _on_pdf_index_message(self, text: str):
+        if self.txt_output and text:
+            self.txt_output.append(text)
+
+    def _on_pdf_index_ok(self):
+        if self.btn_select_pdf:
+            self.btn_select_pdf.setEnabled(True)
+        if self.txt_output:
+            self.txt_output.append("\n[OK] PDF procesado.")
+        self.runner = None
+
+    def _on_pdf_index_err(self, msg: str):
+        if self.btn_select_pdf:
+            self.btn_select_pdf.setEnabled(True)
+        err(self, msg)
+        if self.txt_output:
+            self.txt_output.append("\n[ERROR]\n" + msg)
+        self.runner = None
+
+    def _run_rag_query(self, script_name: str):
+        if self.runner and self.runner.isRunning():
+            return warn(self, "Hay otra operación en curso.")
+
+        if not self.txt_input:
+            return
+
+        pregunta = self.txt_input.toPlainText().strip()
+        if not pregunta:
+            return warn(self, "Escribe una pregunta.")
+
+        module = self._load_module(script_name)
+        if module is None:
+            return
+
+        fn = getattr(module, "preguntar", None)
+        if not callable(fn):
+            return err(self, f"El archivo {script_name} no define la función preguntar().")
+
+        if self.txt_output:
+            self.txt_output.clear()
+            self.txt_output.append("Consultando el documento...\n")
+
+        if self.btn_run_chain:
+            self.btn_run_chain.setEnabled(False)
+
+        self.runner = FunctionRunner(fn, pregunta)
+        self.runner.line.connect(self.txt_output.append)
+        self.runner.finished_ok.connect(lambda _: self._on_rag_finished_ok())
+        self.runner.finished_err.connect(lambda m: self._on_rag_finished_err(m))
+        self.runner.start()
+
+    def _on_rag_finished_ok(self):
+        if self.btn_run_chain:
+            self.btn_run_chain.setEnabled(True)
+        self.runner = None
+
+    def _on_rag_finished_err(self, msg: str):
+        if self.btn_run_chain:
+            self.btn_run_chain.setEnabled(True)
+        err(self, msg)
+        if self.txt_output:
+            self.txt_output.append("\n[ERROR]\n" + msg)
+        self.runner = None
+
     # ---------- Selector de ejercicio ----------
     def _on_select(self, row: int):
         row = max(0, min(row, len(self.items) - 1))
@@ -253,18 +861,45 @@ class Load_ventana_langchain(QDialog):
 
         if name == "1_llmchain.py":
             self._build_llmchain1_panel(name, desc)
-        elif name in {"6_memoria.py", "7_persistencia.py"}:
-            # Aquí puedes insertar tus widgets interactivos existentes si ya los tienes.
-            # Para mantener este archivo genérico y corto, mostramos un aviso simple.
-            self._clear_panel()
-            self.lblTitulo.setText(name)
-            self.txtDesc.setPlainText(desc)
-            box = QTextEdit()
-            box.setReadOnly(True)
-            box.setPlainText(
-                "Este ejercicio es interactivo en tu proyecto.\n"
-                "Inserta aquí el widget personalizado que ya tengas implementado."
+
+        elif name == "2_sequientialchain.py":
+            self._build_resumen_traduccion_panel(name, desc)
+
+        elif name == "3_simplesequientialchain.py":
+            self._build_resumen_traduccion_panel(name, desc)
+
+        elif name == "4_parseo.py":
+            self._build_simple_chain_panel(
+                name, desc,
+                "Texto a resumir:",
+                "Resumen en una sola oración:",
+                "run_chain",
             )
-            self.panelLayout.addWidget(box)
+
+        elif name == "5_varios_pasos.py":
+            self._build_simple_chain_panel(
+                name, desc,
+                "Texto a procesar:",
+                "Salida final:",
+                "run_chain",
+            )
+
+        elif name == "6_memoria.py":
+            self._build_chat_panel(
+                name, desc,
+                func_name="ejecutar_con_memoria",
+                reset_fn_name="resetear_memoria",
+            )
+
+        elif name == "7_persistencia.py":
+            self._build_chat_panel(
+                name, desc,
+                func_name="ejecutar_con_memoria",
+                reset_fn_name="resetear_memoria",
+            )
+
+        elif name == "8_memoria.py":
+            self._build_rag_panel(name, desc)
+
         else:
             self._build_play_panel(name, desc)

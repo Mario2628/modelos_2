@@ -11,7 +11,6 @@ os.environ["GRPC_CPP_VERBOSITY"] = "NONE"
 logging.getLogger("absl").setLevel(logging.ERROR)
 logging.getLogger("grpc").setLevel(logging.ERROR)
 
-
 # Cargar la API Key
 load_dotenv()
 os.environ["GOOGLE_API_KEY"] = os.getenv("GOOGLE_API_KEY")
@@ -30,7 +29,14 @@ parser = StrOutputParser()
 # Encadenamiento moderno (RunnableSequence)
 chain = prompt | llm | parser
 
-# Ejecutar
-resultado = chain.invoke("La inteligencia artificial está transformando la educación a nivel global...")
 
-print(resultado)
+def run_chain(texto: str) -> str:
+    """
+    Devuelve un resumen en una sola oración del texto dado.
+    """
+    return chain.invoke(texto)
+
+
+if __name__ == "__main__":
+    demo = "La inteligencia artificial está transformando la educación a nivel global..."
+    print(run_chain(demo))

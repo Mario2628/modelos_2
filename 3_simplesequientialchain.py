@@ -19,15 +19,46 @@ llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash", temperature=0.7)
 
 # Prompts (usar {input}, no {texto})
 prompt_resumen = PromptTemplate.from_template("Resume el siguiente texto: {input}")
-prompt_traduccion = PromptTemplate.from_template("Tradúcelo al inglés: {input}")
+prompt_traduccion_en = PromptTemplate.from_template("Tradúcelo al inglés: {input}")
 
 # Encadenamiento moderno con Runnables (sin LLMChain)
-chain = prompt_resumen | llm | prompt_traduccion | llm
+chain = prompt_resumen | llm | prompt_traduccion_en | llm
 
-# Ejecutar pasando directamente texto (no diccionario)
-resultado = chain.invoke("La inteligencia artificial está transformando la educación...")
 
-# Obtener texto limpio
-texto_final = resultado.content if hasattr(resultado, "content") else str(resultado)
+def resumir(texto: str) -> str:
+    """
+    Devuelve un resumen del texto en español.
+    (Usamos el primer tramo del pipeline.)
+    """
+    chain_resumen = prompt_resumen | llm
+    resultado = chain_resumen.invoke(texto)
+    contenido = getattr(resultado, "content", str(resultado))
+    return contenido.strip()
 
-print(texto_final.strip())
+
+def traducir(texto: str, idioma: str) -> str:
+    """
+    Traduce el texto dado al idioma indicado usando un prompt genérico.
+    """
+    prompt_multi = PromptTemplate.from_template(
+        "Traduce el siguiente texto al {idioma}:\n\n{texto}"
+    )
+    chain_multi = prompt_multi | llm
+    resultado = chain_multi.invoke({"idioma": idioma, "texto": texto})
+    contenido = getattr(resultado, "content", str(resultado))
+    return contenido.strip()
+
+
+def run_chain(texto: str) -> str:
+    """
+    Flujo original del ejercicio 3:
+    resumen → traducción al inglés en un solo pipeline.
+    """
+    resultado = chain.invoke(texto)
+    contenido = getattr(resultado, "content", str(resultado))
+    return contenido.strip()
+
+
+if __name__ == "__main__":
+    demo = "La inteligencia artificial está transformando la educación..."
+    print(run_chain(demo))
