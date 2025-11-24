@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>VentanaLangChain</class>
+ <widget class="QDialog" name="VentanaLangChain">
+  <property name="windowTitle">
+   <string>LangChain - Ejercicios 1–8</string>
+  </property>
+  <property name="minimumSize">
+   <size><width>1000</width><height>620</height></size>
+  </property>
+  <layout class="QHBoxLayout" name="horizontalLayout">
+   <item>
+    <widget class="QSplitter" name="splitter">
+     <property name="orientation"><enum>Qt::Horizontal</enum></property>
+     <property name="opaqueResize"><bool>true</bool></property>
+
+     <!-- LADO IZQUIERDO (menú chico ~1/4, fuente grande) -->
+     <widget class="QListWidget" name="listExercises">
+      <property name="minimumWidth"><number>220</number></property>
+      <property name="styleSheet">
+       <string notr="true">QListWidget { font-size: 13pt; } QListWidget::item { height: 32px; }</string>
+      </property>
+     </widget>
+
+     <!-- LADO DERECHO -->
+     <widget class="QWidget" name="rightPane">
+      <layout class="QVBoxLayout" name="verticalLayoutRight">
+       <item>
+        <widget class="QLabel" name="lblTitulo">
+         <property name="text"><string>Seleccione un ejercicio</string></property>
+         <property name="styleSheet"><string notr="true">font-weight:600; font-size:18pt;</string></property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QTextEdit" name="txtDesc">
+         <property name="readOnly"><bool>true</bool></property>
+         <property name="maximumHeight"><number>120</number></property>
+         <property name="styleSheet"><string notr="true">font-size:12pt;</string></property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QWidget" name="panelContainer">
+         <layout class="QVBoxLayout" name="panelLayout"/>
+        </widget>
+       </item>
+      </layout>
+     </widget>
+    </widget>
+   </item>
+  </layout>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>
