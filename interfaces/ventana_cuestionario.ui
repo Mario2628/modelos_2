@@ -1,0 +1,333 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+  <class>VentanaCuestionario</class>
+  <widget class="QDialog" name="VentanaCuestionario">
+    <property name="geometry">
+      <rect>
+        <x>0</x>
+        <y>0</y>
+        <width>800</width>
+        <height>600</height>
+      </rect>
+    </property>
+    <property name="windowTitle">
+      <string>Cuestionario IA</string>
+    </property>
+    <layout class="QVBoxLayout" name="verticalLayout">
+      <item>
+        <widget class="QLabel" name="lblTitulo">
+          <property name="text">
+            <string>Cuestionario generado con IA</string>
+          </property>
+          <property name="alignment">
+            <set>Qt::AlignCenter</set>
+          </property>
+          <property name="styleSheet">
+            <string notr="true">font-size:18px; font-weight:bold;</string>
+          </property>
+        </widget>
+      </item>
+      <item>
+        <widget class="QStackedWidget" name="stackedWidget">
+          <widget class="QWidget" name="pageCarga">
+            <attribute name="title">
+              <string>1. Cargar PDF</string>
+            </attribute>
+            <layout class="QVBoxLayout" name="verticalLayout_carga">
+              <item>
+                <layout class="QHBoxLayout" name="horizontalLayout_pdf">
+                  <item>
+                    <widget class="QLabel" name="lblPdf">
+                      <property name="text">
+                        <string>PDF del tema:</string>
+                      </property>
+                    </widget>
+                  </item>
+                  <item>
+                    <widget class="QLineEdit" name="lineEditPDF">
+                      <property name="readOnly">
+                        <bool>true</bool>
+                      </property>
+                    </widget>
+                  </item>
+                  <item>
+                    <widget class="QPushButton" name="btnSeleccionarPDF">
+                      <property name="text">
+                        <string>Buscar PDF...</string>
+                      </property>
+                    </widget>
+                  </item>
+                </layout>
+              </item>
+              <item>
+                <widget class="QPushButton" name="btnGenerarPreguntas">
+                  <property name="text">
+                    <string>Generar 5 preguntas con IA</string>
+                  </property>
+                </widget>
+              </item>
+              <item>
+                <widget class="QTextEdit" name="textEstado">
+                  <property name="readOnly">
+                    <bool>true</bool>
+                  </property>
+                  <property name="placeholderText">
+                    <string>Aquí verás el estado de la generación de preguntas.</string>
+                  </property>
+                </widget>
+              </item>
+            </layout>
+          </widget>
+          <widget class="QWidget" name="pageEvaluacion">
+            <attribute name="title">
+              <string>2. Evaluación</string>
+            </attribute>
+            <layout class="QVBoxLayout" name="verticalLayout_eval">
+              <item>
+                <widget class="QLabel" name="lblInstrucciones">
+                  <property name="text">
+                    <string>Responde las 5 preguntas basadas en el tema del PDF.</string>
+                  </property>
+                  <property name="wordWrap">
+                    <bool>true</bool>
+                  </property>
+                </widget>
+              </item>
+              <item>
+                <widget class="QScrollArea" name="scrollArea">
+                  <property name="widgetResizable">
+                    <bool>true</bool>
+                  </property>
+                  <widget class="QWidget" name="scrollAreaWidgetContents">
+                    <layout class="QVBoxLayout" name="verticalLayout_preguntas">
+                      <item>
+                        <widget class="QGroupBox" name="groupPregunta1">
+                          <property name="title">
+                            <string>Pregunta 1</string>
+                          </property>
+                          <layout class="QVBoxLayout" name="verticalLayout_p1">
+                            <item>
+                              <widget class="QLabel" name="lblPregunta1">
+                                <property name="text">
+                                  <string>Aquí aparecerá la pregunta 1.</string>
+                                </property>
+                                <property name="wordWrap">
+                                  <bool>true</bool>
+                                </property>
+                              </widget>
+                            </item>
+                            <item>
+                              <widget class="QPlainTextEdit" name="txtRespuesta1">
+                                <property name="placeholderText">
+                                  <string>Escribe tu respuesta aquí.</string>
+                                </property>
+                              </widget>
+                            </item>
+                          </layout>
+                        </widget>
+                      </item>
+                      <item>
+                        <widget class="QGroupBox" name="groupPregunta2">
+                          <property name="title">
+                            <string>Pregunta 2</string>
+                          </property>
+                          <layout class="QVBoxLayout" name="verticalLayout_p2">
+                            <item>
+                              <widget class="QLabel" name="lblPregunta2">
+                                <property name="text">
+                                  <string>Aquí aparecerá la pregunta 2.</string>
+                                </property>
+                                <property name="wordWrap">
+                                  <bool>true</bool>
+                                </property>
+                              </widget>
+                            </item>
+                            <item>
+                              <widget class="QPlainTextEdit" name="txtRespuesta2">
+                                <property name="placeholderText">
+                                  <string>Escribe tu respuesta aquí.</string>
+                                </property>
+                              </widget>
+                            </item>
+                          </layout>
+                        </widget>
+                      </item>
+                      <item>
+                        <widget class="QGroupBox" name="groupPregunta3">
+                          <property name="title">
+                            <string>Pregunta 3</string>
+                          </property>
+                          <layout class="QVBoxLayout" name="verticalLayout_p3">
+                            <item>
+                              <widget class="QLabel" name="lblPregunta3">
+                                <property name="text">
+                                  <string>Aquí aparecerá la pregunta 3.</string>
+                                </property>
+                                <property name="wordWrap">
+                                  <bool>true</bool>
+                                </property>
+                              </widget>
+                            </item>
+                            <item>
+                              <widget class="QPlainTextEdit" name="txtRespuesta3">
+                                <property name="placeholderText">
+                                  <string>Escribe tu respuesta aquí.</string>
+                                </property>
+                              </widget>
+                            </item>
+                          </layout>
+                        </widget>
+                      </item>
+                      <item>
+                        <widget class="QGroupBox" name="groupPregunta4">
+                          <property name="title">
+                            <string>Pregunta 4</string>
+                          </property>
+                          <layout class="QVBoxLayout" name="verticalLayout_p4">
+                            <item>
+                              <widget class="QLabel" name="lblPregunta4">
+                                <property name="text">
+                                  <string>Aquí aparecerá la pregunta 4.</string>
+                                </property>
+                                <property name="wordWrap">
+                                  <bool>true</bool>
+                                </property>
+                              </widget>
+                            </item>
+                            <item>
+                              <widget class="QPlainTextEdit" name="txtRespuesta4">
+                                <property name="placeholderText">
+                                  <string>Escribe tu respuesta aquí.</string>
+                                </property>
+                              </widget>
+                            </item>
+                          </layout>
+                        </widget>
+                      </item>
+                      <item>
+                        <widget class="QGroupBox" name="groupPregunta5">
+                          <property name="title">
+                            <string>Pregunta 5</string>
+                          </property>
+                          <layout class="QVBoxLayout" name="verticalLayout_p5">
+                            <item>
+                              <widget class="QLabel" name="lblPregunta5">
+                                <property name="text">
+                                  <string>Aquí aparecerá la pregunta 5.</string>
+                                </property>
+                                <property name="wordWrap">
+                                  <bool>true</bool>
+                                </property>
+                              </widget>
+                            </item>
+                            <item>
+                              <widget class="QPlainTextEdit" name="txtRespuesta5">
+                                <property name="placeholderText">
+                                  <string>Escribe tu respuesta aquí.</string>
+                                </property>
+                              </widget>
+                            </item>
+                          </layout>
+                        </widget>
+                      </item>
+                      <item>
+                        <spacer name="verticalSpacerEval">
+                          <property name="orientation">
+                            <enum>Qt::Vertical</enum>
+                          </property>
+                          <property name="sizeHint">
+                            <size>
+                              <width>20</width>
+                              <height>40</height>
+                            </size>
+                          </property>
+                        </spacer>
+                      </item>
+                    </layout>
+                  </widget>
+                </widget>
+              </item>
+            </layout>
+          </widget>
+          <widget class="QWidget" name="pageResultado">
+            <attribute name="title">
+              <string>3. Resultado</string>
+            </attribute>
+            <layout class="QVBoxLayout" name="verticalLayout_result">
+              <item>
+                <widget class="QLabel" name="lblPuntaje">
+                  <property name="text">
+                    <string>Puntaje: 0/100</string>
+                  </property>
+                  <property name="alignment">
+                    <set>Qt::AlignCenter</set>
+                  </property>
+                </widget>
+              </item>
+              <item>
+                <widget class="QProgressBar" name="progressPuntaje">
+                  <property name="minimum">
+                    <number>0</number>
+                  </property>
+                  <property name="maximum">
+                    <number>100</number>
+                  </property>
+                  <property name="value">
+                    <number>0</number>
+                  </property>
+                  <property name="format">
+                    <string>%p%</string>
+                  </property>
+                </widget>
+              </item>
+              <item>
+                <widget class="QTextEdit" name="textFeedback">
+                  <property name="readOnly">
+                    <bool>true</bool>
+                  </property>
+                  <property name="placeholderText">
+                    <string>Aquí aparecerá la retroalimentación generada por la IA.</string>
+                  </property>
+                </widget>
+              </item>
+            </layout>
+          </widget>
+        </widget>
+      </item>
+      <item>
+        <layout class="QHBoxLayout" name="horizontalLayout_botones">
+          <item>
+            <widget class="QPushButton" name="btnIrCarga">
+              <property name="text">
+                <string>1. Carga PDF</string>
+              </property>
+            </widget>
+          </item>
+          <item>
+            <widget class="QPushButton" name="btnIrEvaluacion">
+              <property name="text">
+                <string>2. Evaluación</string>
+              </property>
+            </widget>
+          </item>
+          <item>
+            <widget class="QPushButton" name="btnCalificar">
+              <property name="text">
+                <string>Calificar con IA</string>
+              </property>
+            </widget>
+          </item>
+          <item>
+            <widget class="QPushButton" name="btnIrResultado">
+              <property name="text">
+                <string>3. Resultado</string>
+              </property>
+            </widget>
+          </item>
+        </layout>
+      </item>
+    </layout>
+  </widget>
+  <resources/>
+  <connections/>
+</ui>

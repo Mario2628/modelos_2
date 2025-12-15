@@ -63,6 +63,22 @@
     {
       "type": "ai",
       "content": "¡Excelente, Mario! Ahora sé que también te gusta programar.\n\nAsí que, para resumir lo que sé de ti:\n\n*   **Nombre:** Mario Méndez\n*   **Edad:** 23 años\n*   **Altura:** 1.70 metros\n*   **Gustos:** Te gusta la pizza y te gusta programar.\n\n¡Es genial conocer más sobre ti! ¿Hay algo más que quieras compartir o en lo que pueda ayudarte?"
+    },
+    {
+      "type": "human",
+      "content": "que sabes de mi"
+    },
+    {
+      "type": "ai",
+      "content": "¡Claro, Mario! Esto es lo que sé de ti hasta ahora:\n\n*   **Nombre:** Mario Méndez\n*   **Edad:** 23 años\n*   **Altura:** 1.70 metros\n*   **Gustos:** Te gusta la pizza y te gusta programar.\n\nEsa es toda la información que me has compartido."
+    },
+    {
+      "type": "human",
+      "content": "de que hemos hablado"
+    },
+    {
+      "type": "ai",
+      "content": "Hemos hablado de varias cosas, Mario. Principalmente, me has compartido información sobre ti:\n\n1.  **Tu nombre:** Mario Méndez\n2.  **Tu edad:** 23 años\n3.  **Tu altura:** 1.70 metros\n4.  **Tus gustos:** Te gusta la pizza y te gusta programar.\n\nTambién me preguntaste qué sabía de ti en varias ocasiones, y en un momento me preguntaste si tu nombre era Alejandro, lo cual corregí recordándote que me habías dicho que eras Mario.\n\nEn resumen, hemos estado construyendo un perfil tuyo con los datos que me has querido dar."
     }
   ]
 }

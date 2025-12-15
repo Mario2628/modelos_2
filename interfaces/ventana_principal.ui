@@ -107,6 +107,7 @@ QStatusBar QLabel {
     </property>
     <addaction name="actionBasicos"/>
     <addaction name="actionLangchain"/>
+     <addaction name="actionCuestionario"/>
     <addaction name="separator"/>
     <addaction name="actionSalir"/>
    </widget>
@@ -123,6 +124,12 @@ QStatusBar QLabel {
     <string>LangChain</string>
    </property>
   </action>
+    <action name="actionCuestionario">
+    <property name="text">
+      <string>Cuestionario</string>
+    </property>
+  </action>
+
   <action name="actionSalir">
    <property name="text">
     <string>Salir</string>

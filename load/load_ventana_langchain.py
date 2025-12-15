@@ -2,9 +2,9 @@
 # ------------------------------------------------------
 # Ventana para ejecutar tus ejercicios LangChain.
 # 1: input de "tema" y "template" (se pasan al script por variables de entorno).
-# 2,3: resumen + traducción a varios idiomas desde la interfaz.
-# 4,5: texto → texto simple.
-# 6 y 7: chat interactivo con memoria (RAM / JSON).
+# 2,3: resumen + traducción al inglés desde la interfaz, un solo botón.
+# 4,5: texto → texto simple (usando funciones del script).
+# 6 y 7: chat interactivo con memoria (6: memoria en GUI, 7: memoria en el script).
 # 8: RAG con PDF seleccionable.
 # ------------------------------------------------------
 
@@ -151,12 +151,12 @@ class Load_ventana_langchain(QDialog):
         # Descripciones (breves)
         self.items = [
             ("1_llmchain.py",               "Ejemplo de PromptTemplate con entrada personalizada."),
-            ("2_sequientialchain.py",       "Resumen → Traducción (SequentialChain) con varios idiomas."),
-            ("3_simplesequientialchain.py", "Pipeline encadenado directo con varios idiomas."),
+            ("2_sequientialchain.py",       "Resumen → Traducción al inglés (SequentialChain)."),
+            ("3_simplesequientialchain.py", "Resumen → Traducción al inglés (pipeline directo)."),
             ("4_parseo.py",                 "Resumen en una oración (parser)."),
             ("5_varios_pasos.py",           "Resumen→Traducción con parser."),
-            ("6_memoria.py",                "Conversación con memoria (5 turnos en RAM)."),
-            ("7_persistencia.py",           "Memoria persistente (JSON)."),
+            ("6_memoria.py",                "Conversación con memoria (3 turnos en RAM desde la GUI)."),
+            ("7_persistencia.py",           "Memoria persistente (JSON, desde el script)."),
             ("8_memoria.py",                "RAG con PDF (FAISS)."),
         ]
         for n, _ in self.items:
@@ -198,6 +198,9 @@ class Load_ventana_langchain(QDialog):
 
         # Cache de módulos cargados dinámicamente
         self.modules_cache = {}
+
+        # Estado de memoria para el ejercicio 6 (en GUI)
+        self._mem6 = None
 
     # ------------ util ------------
     def _clear_panel(self):
@@ -250,7 +253,6 @@ class Load_ventana_langchain(QDialog):
             return None
 
     # ---------- Panel del ejercicio 1: Tema + Template ----------
-    # *** NO TOCAR (dejado igual que en tu archivo) ***
     def _build_llmchain1_panel(self, script_name: str, desc: str):
         self._clear_panel()
         self.lblTitulo.setText(script_name)
@@ -315,7 +317,7 @@ class Load_ventana_langchain(QDialog):
         self.runner.finished_err.connect(lambda m: (err(self, m), self.txt_output.append("\n[ERROR]\n" + m)))
         self.runner.start()
 
-    # ---------- Panel genérico (4,5 y fallback) ----------
+    # ---------- Panel genérico (1,4,5,7,8 fallback de script directo) ----------
     def _build_play_panel(self, script_name: str, desc: str):
         self._clear_panel()
         self.lblTitulo.setText(script_name)
@@ -440,163 +442,72 @@ class Load_ventana_langchain(QDialog):
         self.txtDesc.setPlainText(desc)
 
         self.txt_input = QTextEdit()
-        self.txt_input.setPlaceholderText("Escribe aquí el texto que quieras resumir…")
+        self.txt_input.setPlaceholderText(
+            "Escribe aquí el texto que quieras resumir y traducir al inglés…"
+        )
 
-        self.btn_resumir = QPushButton("Resumir")
-        self.btn_resumir.setCursor(QtCore.Qt.PointingHandCursor)
+        self.btn_run_chain = QPushButton("▶ Ejecutar")
+        self.btn_run_chain.setCursor(QtCore.Qt.PointingHandCursor)
 
-        self.txt_resumen = QTextEdit()
-        self.txt_resumen.setReadOnly(True)
-        self.txt_resumen.setStyleSheet("font-size:14pt;")
-
-        self.cmb_idioma = QComboBox()
-        idiomas = [
-            "inglés",
-            "español",
-            "francés",
-            "alemán",
-            "italiano",
-            "portugués",
-            "chino simplificado",
-            "japonés",
-            "coreano",
-            "árabe",
-            "ruso",
-            "hindi",
-            "turco",
-            "neerlandés",
-            "polaco",
-        ]
-        self.cmb_idioma.addItems(idiomas)
-        self.cmb_idioma.setCurrentIndex(0)  # inglés por defecto
-
-        self.btn_traducir = QPushButton("Traducir resumen")
-        self.btn_traducir.setCursor(QtCore.Qt.PointingHandCursor)
-
-        self.txt_traduccion = QTextEdit()
-        self.txt_traduccion.setReadOnly(True)
-        self.txt_traduccion.setStyleSheet("font-size:14pt;")
+        self.txt_output = QTextEdit()
+        self.txt_output.setReadOnly(True)
+        self.txt_output.setStyleSheet("font-size:14pt;")
 
         w = QWidget()
         v = QVBoxLayout(w)
-        v.addWidget(QLabelBig("Texto original:"))
+        v.addWidget(QLabelBig("Texto de entrada:"))
         v.addWidget(self.txt_input)
-        v.addWidget(self.btn_resumir)
-        v.addWidget(QLabelBig("Resumen en español:"))
-        v.addWidget(self.txt_resumen)
-        v.addWidget(QLabelBig("Traducción del resumen:"))
-        v.addWidget(self.cmb_idioma)
-        v.addWidget(self.btn_traducir)
-        v.addWidget(self.txt_traduccion)
+        v.addWidget(self.btn_run_chain)
+        v.addWidget(QLabelBig("Salida (resumen + traducción al inglés):"))
+        v.addWidget(self.txt_output)
 
         self.panelLayout.addWidget(w)
 
-        self.btn_resumir.clicked.connect(
-            lambda: self._run_resumen(script_name)
-        )
-        self.btn_traducir.clicked.connect(
-            lambda: self._run_traduccion(script_name)
+        self.btn_run_chain.clicked.connect(
+            lambda: self._run_resumen_traduccion(script_name)
         )
 
-    def _run_resumen(self, script_name: str):
-        if self.runner and self.runner.isRunning():
-            return warn(self, "Ya hay un proceso en ejecución.")
-
+    def _run_resumen_traduccion(self, script_name: str):
         if not self.txt_input:
             return
 
         texto = self.txt_input.toPlainText().strip()
         if not texto:
-            return warn(self, "Escribe un texto para resumir.")
+            return warn(self, "Escribe un texto de entrada.")
 
-        module = self._load_module(script_name)
-        if module is None:
-            return
+        try:
+            from dotenv import load_dotenv
+            from langchain.prompts import PromptTemplate
+            from langchain_google_genai import ChatGoogleGenerativeAI
 
-        fn = getattr(module, "resumir", None)
-        if not callable(fn):
-            return err(self, f"El archivo {script_name} no define la función resumir().")
+            load_dotenv()
+            os.environ["GOOGLE_API_KEY"] = os.getenv("GOOGLE_API_KEY", "")
 
-        if self.txt_resumen:
-            self.txt_resumen.clear()
-        if self.txt_traduccion:
-            self.txt_traduccion.clear()
+            llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash", temperature=0.7)
 
-        if self.btn_resumir:
-            self.btn_resumir.setEnabled(False)
+            prompt_resumen = PromptTemplate.from_template(
+                "Resume el siguiente texto: {input}"
+            )
+            prompt_traduccion = PromptTemplate.from_template(
+                "Tradúcelo al inglés: {input}"
+            )
 
-        self.runner = FunctionRunner(fn, texto)
-        self.runner.line.connect(self._mostrar_resumen)
-        self.runner.finished_ok.connect(lambda _: self._on_resumen_ok())
-        self.runner.finished_err.connect(lambda m: self._on_resumen_err(m))
-        self.runner.start()
+            if script_name == "2_sequientialchain.py":
+                chain_resumen = prompt_resumen | llm
+                chain_traduccion = prompt_traduccion | llm
+                chain_final = chain_resumen | chain_traduccion
+                result = chain_final.invoke(texto)
+            else:
+                chain = prompt_resumen | llm | prompt_traduccion | llm
+                result = chain.invoke(texto)
 
-    def _mostrar_resumen(self, texto: str):
-        if self.txt_resumen:
-            self.txt_resumen.setPlainText(texto)
+            texto_final = result.content if hasattr(result, "content") else str(result)
+            if self.txt_output:
+                self.txt_output.setPlainText(texto_final.strip())
+        except Exception as e:
+            err(self, f"{e}\n\n{traceback.format_exc()}")
 
-    def _on_resumen_ok(self):
-        if self.btn_resumir:
-            self.btn_resumir.setEnabled(True)
-        self.runner = None
-
-    def _on_resumen_err(self, msg: str):
-        if self.btn_resumir:
-            self.btn_resumir.setEnabled(True)
-        err(self, msg)
-        self.runner = None
-
-    def _run_traduccion(self, script_name: str):
-        if self.runner and self.runner.isRunning():
-            return warn(self, "Ya hay un proceso en ejecución.")
-
-        if not self.txt_resumen:
-            return
-
-        resumen = self.txt_resumen.toPlainText().strip()
-        if not resumen:
-            return warn(self, "Primero genera el resumen con el botón 'Resumir'.")
-
-        idioma = "inglés"
-        if self.cmb_idioma and self.cmb_idioma.currentText():
-            idioma = self.cmb_idioma.currentText()
-
-        module = self._load_module(script_name)
-        if module is None:
-            return
-
-        fn = getattr(module, "traducir", None)
-        if not callable(fn):
-            return err(self, f"El archivo {script_name} no define la función traducir().")
-
-        if self.txt_traduccion:
-            self.txt_traduccion.clear()
-
-        if self.btn_traducir:
-            self.btn_traducir.setEnabled(False)
-
-        self.runner = FunctionRunner(fn, resumen, idioma)
-        self.runner.line.connect(self._mostrar_traduccion)
-        self.runner.finished_ok.connect(lambda _: self._on_traduccion_ok())
-        self.runner.finished_err.connect(lambda m: self._on_traduccion_err(m))
-        self.runner.start()
-
-    def _mostrar_traduccion(self, texto: str):
-        if self.txt_traduccion:
-            self.txt_traduccion.setPlainText(texto)
-
-    def _on_traduccion_ok(self):
-        if self.btn_traducir:
-            self.btn_traducir.setEnabled(True)
-        self.runner = None
-
-    def _on_traduccion_err(self, msg: str):
-        if self.btn_traducir:
-            self.btn_traducir.setEnabled(True)
-        err(self, msg)
-        self.runner = None
-
-    # ---------- Panel de chat (ejercicios 6 y 7) ----------
+    # ---------- Panel de chat (ejercicio 7: usa tu script) ----------
     def _build_chat_panel(self, script_name: str, desc: str,
                           func_name: str, reset_fn_name: str = None):
         self._clear_panel()
@@ -638,7 +549,6 @@ class Load_ventana_langchain(QDialog):
                 lambda: self._reset_chat_memory(script_name, reset_fn_name)
             )
 
-        # Mensaje inicial
         self.txt_output.append("La memoria de la conversación se conserva entre mensajes.")
         if script_name == "7_persistencia.py":
             self.txt_output.append(
@@ -710,6 +620,116 @@ class Load_ventana_langchain(QDialog):
                 self.txt_output.append("Memoria reiniciada.")
         except Exception as e:
             err(self, f"No se pudo reiniciar la memoria:\n{e}")
+
+    # ---------- Ejercicio 6: chat con memoria SOLO 3 conversaciones (en GUI) ----------
+    def _init_mem6(self):
+        """Inicializa la memoria interna del ejercicio 6 (3 conversaciones)."""
+        if self._mem6 is not None:
+            return
+
+        from dotenv import load_dotenv
+        from langchain_google_genai import ChatGoogleGenerativeAI
+        from langchain.prompts import ChatPromptTemplate
+        # *** CAMBIO IMPORTANTE SOLO AQUÍ: usamos ConversationBufferWindowMemory ***
+        from langchain.memory import ConversationBufferWindowMemory
+
+        load_dotenv()
+        os.environ["GOOGLE_API_KEY"] = os.getenv("GOOGLE_API_KEY", "")
+
+        class MemoriaSesion:
+            def __init__(self, max_items=3):
+                self.llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash", temperature=0.7)
+                self.prompt = ChatPromptTemplate.from_messages([
+                    ("system", "Eres un asistente útil y recuerdas la conversación anterior."),
+                    ("placeholder", "{history}"),
+                    ("human", "{input}")
+                ])
+                # Solo guarda las ÚLTIMAS max_items conversaciones (pares usuario+IA)
+                self.memory = ConversationBufferWindowMemory(
+                    k=max_items,
+                    return_messages=True
+                )
+
+            def conversar(self, texto: str) -> str:
+                vars_ = self.memory.load_memory_variables({})
+                history = vars_.get("history", [])
+                chain = self.prompt | self.llm
+                resp = chain.invoke({"history": history, "input": texto})
+                self.memory.save_context({"input": texto}, {"output": resp.content})
+                return resp.content.strip()
+
+        self._mem6 = MemoriaSesion(max_items=3)
+
+    def _build_memoria6_panel(self, script_name: str, desc: str):
+        """Interfaz del ejercicio 6: igual aspecto que el chat, pero memoria en la GUI (3 turnos)."""
+        self._clear_panel()
+        self.lblTitulo.setText(script_name)
+        self.txtDesc.setPlainText(desc)
+
+        self.txt_output = QTextEdit()
+        self.txt_output.setReadOnly(True)
+        self.txt_output.setStyleSheet("font-size:14pt;")
+
+        self.inp_chat = QLineEdit()
+        self.inp_chat.setPlaceholderText("Escribe tu mensaje para el asistente…")
+
+        self.btn_chat_send = QPushButton("Enviar mensaje")
+        self.btn_chat_send.setCursor(QtCore.Qt.PointingHandCursor)
+
+        self.btn_chat_reset = QPushButton("🧹 Borrar memoria")
+        self.btn_chat_reset.setCursor(QtCore.Qt.PointingHandCursor)
+
+        layout = QVBoxLayout()
+        layout.addWidget(QLabelBig("Historial de conversación:"))
+        layout.addWidget(self.txt_output)
+        layout.addWidget(QLabelBig("Tu mensaje:"))
+        layout.addWidget(self.inp_chat)
+        layout.addWidget(self.btn_chat_send)
+        layout.addWidget(self.btn_chat_reset)
+
+        w = QWidget()
+        w.setLayout(layout)
+        self.panelLayout.addWidget(w)
+
+        self.btn_chat_send.clicked.connect(self._run_memoria6_message)
+        self.btn_chat_reset.clicked.connect(self._reset_memoria6)
+
+        self.txt_output.append(
+            "La memoria de la conversación se conserva entre mensajes, "
+            "pero SOLO recuerda las últimas 3 conversaciones (pregunta-respuesta)."
+        )
+
+    def _run_memoria6_message(self):
+        if self.runner and self.runner.isRunning():
+            return warn(self, "Ya hay un proceso en ejecución.")
+
+        if not self.inp_chat:
+            return
+
+        text = self.inp_chat.text().strip()
+        if not text:
+            return warn(self, "Escribe un mensaje.")
+
+        self._init_mem6()
+
+        if self.txt_output:
+            self.txt_output.append(f"👤 Tú: {text}")
+
+        self.inp_chat.clear()
+        if self.btn_chat_send:
+            self.btn_chat_send.setEnabled(False)
+
+        self.runner = FunctionRunner(self._mem6.conversar, text)
+        self.runner.line.connect(self._append_bot_message)
+        self.runner.finished_ok.connect(lambda _: self._on_chat_finished_ok())
+        self.runner.finished_err.connect(lambda m: self._on_chat_finished_err(m))
+        self.runner.start()
+
+    def _reset_memoria6(self):
+        self._mem6 = None
+        if self.txt_output:
+            self.txt_output.clear()
+            self.txt_output.append("Memoria reiniciada (se olvidaron todas las conversaciones previas).")
 
     # ---------- Panel RAG (ejercicio 8) ----------
     def _build_rag_panel(self, script_name: str, desc: str):
@@ -885,11 +905,7 @@ class Load_ventana_langchain(QDialog):
             )
 
         elif name == "6_memoria.py":
-            self._build_chat_panel(
-                name, desc,
-                func_name="ejecutar_con_memoria",
-                reset_fn_name="resetear_memoria",
-            )
+            self._build_memoria6_panel(name, desc)
 
         elif name == "7_persistencia.py":
             self._build_chat_panel(
